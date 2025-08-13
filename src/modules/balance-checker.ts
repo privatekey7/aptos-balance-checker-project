@@ -54,7 +54,31 @@ async function getAptPrice(): Promise<number> {
 }
 
 /**
- * Читает приватные ключи из файла keys.txt
+ * Читает адреса кошельков из файла wallets.txt
+ * @returns Массив адресов кошельков
+ */
+function readWalletAddresses(): string[] {
+  try {
+    const filePath = path.join(__dirname, '..', '..', 'wallets.txt');
+    const content = fs.readFileSync(filePath, 'utf8');
+    
+    // Разбиваем по строкам и фильтруем пустые строки и комментарии
+    const addresses = content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'))
+      .filter(line => line.startsWith('0x')); // Проверяем, что это валидный адрес
+    
+    return addresses;
+    
+  } catch (error) {
+    console.error(chalk.red('❌ Ошибка при чтении файла wallets.txt:'), error);
+    return [];
+  }
+}
+
+/**
+ * Читает приватные ключи из файла keys.txt (для модуля трансфера)
  * @returns Массив приватных ключей
  */
 function readPrivateKeys(): string[] {
@@ -77,7 +101,7 @@ function readPrivateKeys(): string[] {
 }
 
 /**
- * Генерирует адрес из приватного ключа
+ * Генерирует адрес из приватного ключа (для модуля трансфера)
  * @param privateKeyHex - Приватный ключ в hex формате
  * @returns Адрес кошелька
  */
@@ -157,25 +181,25 @@ async function getAptBalance(address: string) {
 }
 
 /**
- * Проверяет балансы для всех кошельков из приватных ключей
+ * Проверяет балансы для всех кошельков из файла wallets.txt
  */
 export async function checkAllWallets() {
   try {
-    const privateKeys = readPrivateKeys();
+    const addresses = readWalletAddresses();
     
-    if (privateKeys.length === 0) {
-      console.log(chalk.red("❌ Не найдено приватных ключей для проверки"));
+    if (addresses.length === 0) {
+      console.log(chalk.red("❌ Не найдено адресов кошельков в файле wallets.txt"));
+      console.log(chalk.yellow("💡 Добавьте адреса кошельков в файл wallets.txt (по одному на строку)"));
       return;
     }
     
-    console.log(chalk.cyan.bold(`🚀 Проверка ${privateKeys.length} кошельков...\n`));
+    console.log(chalk.cyan.bold(`🚀 Проверка ${addresses.length} кошельков...\n`));
     
     // Получаем цену APT один раз для всех кошельков
     const aptPrice = await getAptPrice();
     console.log(chalk.green.bold(`💰 Цена APT: $${aptPrice.toFixed(4)} USD\n`));
     
     const results: Array<{
-      privateKey: string;
       address: string;
       balanceOctets: string;
       balanceApt: number;
@@ -184,17 +208,13 @@ export async function checkAllWallets() {
     }> = [];
     let totalApt = 0;
     
-    for (let i = 0; i < privateKeys.length; i++) {
-      const privateKey = privateKeys[i];
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
       
       try {
-        // Генерируем адрес из приватного ключа
-        const address = await generateAddressFromPrivateKey(privateKey);
-        
         // Получаем баланс
         const result = await getAptBalance(address);
         results.push({
-          privateKey,
           address,
           balanceOctets: result.balanceOctets,
           balanceApt: result.balanceApt,
@@ -213,7 +233,7 @@ export async function checkAllWallets() {
         }
         
         // Добавляем небольшую задержку между запросами
-        if (i < privateKeys.length - 1) {
+        if (i < addresses.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
@@ -221,8 +241,7 @@ export async function checkAllWallets() {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(chalk.red(`❌ Ошибка при проверке кошелька ${i + 1}:`), errorMessage);
         results.push({
-          privateKey,
-          address: "Ошибка генерации",
+          address,
           balanceOctets: "0",
           balanceApt: 0,
           tokenType: "0x1::aptos_coin::AptosCoin",
