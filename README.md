@@ -44,3 +44,8 @@ npm start
 ## Безопасность
 
 ⚠️ **Внимание**: Файлы `keys.txt`, `sub_accs.txt` и `wallets.txt` содержат конфиденциальные данные и не должны попадать в публичные репозитории.
+
+## Автор
+
+Канал в Telegram: [@privatekey_ai](https://t.me/privatekey_ai) — Claude Code, ИИ-агенты и новые нейросети на практике.
+Вопросы и предложения — в [чате канала](https://t.me/privatekey_ai_chat).
